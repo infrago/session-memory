@@ -3,8 +3,6 @@ package session_memory
 import (
 	"encoding/base64"
 	"errors"
-	"fmt"
-	"strconv"
 	"sync"
 	"time"
 
@@ -69,14 +67,14 @@ func (this *memoryConnect) Close() error {
 }
 
 // 查询会话，
-func (this *memoryConnect) Read(key string) ([]byte, error) {
+func (this *memoryConnect) Read(id string) ([]byte, error) {
 	if this.db == nil {
 		return nil, errInvalidCacheConnection
 	}
 
 	value := ""
 	err := this.db.View(func(tx *buntdb.Tx) error {
-		vvv, err := tx.Get(key)
+		vvv, err := tx.Get(id)
 		if err != nil {
 			return err
 		}
@@ -95,7 +93,7 @@ func (this *memoryConnect) Read(key string) ([]byte, error) {
 }
 
 // 更新会话
-func (this *memoryConnect) Write(key string, data []byte, expiry time.Duration) error {
+func (this *memoryConnect) Write(id string, data []byte, expiry time.Duration) error {
 	if this.db == nil {
 		return errInvalidCacheConnection
 	}
@@ -111,19 +109,19 @@ func (this *memoryConnect) Write(key string, data []byte, expiry time.Duration) 
 			opts.Expires = true
 			opts.TTL = expiry
 		}
-		_, _, err := tx.Set(key, value, opts)
+		_, _, err := tx.Set(id, value, opts)
 		return err
 	})
 }
 
 // 查询会话，
-func (this *memoryConnect) Exists(key string) (bool, error) {
+func (this *memoryConnect) Exists(id string) (bool, error) {
 	if this.db == nil {
 		return false, errInvalidCacheConnection
 	}
 
 	err := this.db.View(func(tx *buntdb.Tx) error {
-		_, err := tx.Get(key)
+		_, err := tx.Get(id)
 		return err
 	})
 	if err != nil {
@@ -135,37 +133,15 @@ func (this *memoryConnect) Exists(key string) (bool, error) {
 }
 
 // 删除会话
-func (this *memoryConnect) Delete(key string) error {
+func (this *memoryConnect) Delete(id string) error {
 	if this.db == nil {
 		return errInvalidCacheConnection
 	}
 
 	return this.db.Update(func(tx *buntdb.Tx) error {
-		_, err := tx.Delete(key)
+		_, err := tx.Delete(id)
 		return err
 	})
-}
-
-func (this *memoryConnect) Sequence(key string, start, step int64, expiry time.Duration) (int64, error) {
-	value := start
-
-	if data, err := this.Read(key); err == nil {
-		num, err := strconv.ParseInt(string(data), 10, 64)
-		if err == nil {
-			value = num
-		}
-	}
-	//加数字
-	value += step
-
-	//写入值
-	data := []byte(fmt.Sprintf("%v", value))
-	err := this.Write(key, data, expiry)
-	if err != nil {
-		return int64(0), err
-	}
-
-	return value, nil
 }
 
 func (this *memoryConnect) Clear(prefix string) error {
@@ -173,14 +149,14 @@ func (this *memoryConnect) Clear(prefix string) error {
 		return errors.New("连接失败")
 	}
 
-	keys, err := this.Keys(prefix)
+	ids, err := this.Keys(prefix)
 	if err != nil {
 		return err
 	}
 
 	return this.db.Update(func(tx *buntdb.Tx) error {
-		for _, key := range keys {
-			_, err := tx.Delete(key)
+		for _, id := range ids {
+			_, err := tx.Delete(id)
 			if err != nil {
 				return err
 			}
@@ -193,10 +169,10 @@ func (this *memoryConnect) Keys(prefix string) ([]string, error) {
 		return nil, errors.New("连接失败")
 	}
 
-	keys := []string{}
+	ids := []string{}
 	err := this.db.View(func(tx *buntdb.Tx) error {
 		tx.AscendKeys(prefix+"*", func(k, v string) bool {
-			keys = append(keys, k)
+			ids = append(ids, k)
 			return true
 		})
 
@@ -206,5 +182,5 @@ func (this *memoryConnect) Keys(prefix string) ([]string, error) {
 		return nil, err
 	}
 
-	return keys, nil
+	return ids, nil
 }
