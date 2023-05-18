@@ -93,7 +93,7 @@ func (this *memoryConnect) Read(id string) ([]byte, error) {
 }
 
 // 更新会话
-func (this *memoryConnect) Write(id string, data []byte, expiry time.Duration) error {
+func (this *memoryConnect) Write(id string, data []byte, expire time.Duration) error {
 	if this.db == nil {
 		return errInvalidCacheConnection
 	}
@@ -105,9 +105,9 @@ func (this *memoryConnect) Write(id string, data []byte, expiry time.Duration) e
 
 	return this.db.Update(func(tx *buntdb.Tx) error {
 		opts := &buntdb.SetOptions{Expires: false}
-		if expiry > 0 {
+		if expire > 0 {
 			opts.Expires = true
-			opts.TTL = expiry
+			opts.TTL = expire
 		}
 		_, _, err := tx.Set(id, value, opts)
 		return err
